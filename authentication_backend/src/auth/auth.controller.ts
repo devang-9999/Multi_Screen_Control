@@ -49,34 +49,3 @@ export class AuthController {
   }
 }
 
-
-// @Controller('auth')
-// export class AuthController {
-//   constructor(private readonly authService: AuthService) { }
-
-
-
-//   // @Post('login')
-//   // loginUser(@Body() loginAuthDto: LoginAuthDto) {
-//   //   return this.authService.login(loginAuthDto);
-//   // }
-//   @UseGuards(AuthGuard('local'))  
-//   @Post('/login')
-//   loginUser(@Request() req: any): any {
-//     console.log('User:', req.user);
-//     req.session.user = req.user;
-//     return { message: 'Login successful' , };
-//   }
-
-//   @Post('logout')
-//   logout(@Request() req): any {
-//     req.session.destroy();
-//     return { message: 'Logout successful' };
-//   }
-
-//   @UseGuards(AuthGuard('local')) 
-//   @Get()
-//   getWelcome() {
-//     return 'Welcome to the Auth Service';
-//   }
-// }
