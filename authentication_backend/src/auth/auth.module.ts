@@ -14,7 +14,7 @@ import { SessionGateway } from 'src/session/session.gateway';
     TypeOrmModule.forFeature([Auth,UserSession]),
     PassportModule,
     JwtModule.register({
-      secret: 'SECRET_KEY_123',
+      secret: 'MY_SECRET_KEY',
       signOptions: { expiresIn: '1d' },
     }),
   ],
