@@ -1,5 +1,6 @@
 "use client";
-
+import {io} from "socket.io-client";
+const socket = io("http://localhost:5000");
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Typography, Box } from "@mui/material";
@@ -16,15 +17,17 @@ export default function Dashboard() {
     dispatch(fetchMeThunk());
   }, [dispatch]);
 
-  useEffect(() => {
+  useEffect(() => { 
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
 
   const handleLogout = async () => {
-    await dispatch(logoutThunk());
-    router.push("/login");
+    socket.on('force_logout', () => {
+      dispatch(logoutThunk());
+      router.push("/login");
+    });
   };
 
   if (loading) {

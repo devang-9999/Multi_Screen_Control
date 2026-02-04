@@ -5,11 +5,12 @@ import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { dataSourceOptions } from './database/datasource/data_source';
 import { AuthModule } from './auth/auth.module';
+import { UserModule } from './session/user.module';
 
 @Module({
   imports: [
     TypeOrmModule.forRoot({...dataSourceOptions}),
-    AuthModule,
+    AuthModule,UserModule
   ],
   controllers: [AppController],
   providers: [AppService],

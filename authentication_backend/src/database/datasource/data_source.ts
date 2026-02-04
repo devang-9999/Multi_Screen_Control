@@ -1,7 +1,7 @@
 /* eslint-disable prettier/prettier */
 import { DataSource, DataSourceOptions } from 'typeorm';
 import * as dotenv from 'dotenv';
-import { Auth } from 'src/auth/entities/auth.entity';
+
 
 dotenv.config();
 
@@ -12,9 +12,9 @@ const rawDataSourceOptions = {
       username: process.env.DB_USER,
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
-      synchronize: true,
-      entities: [Auth],
-      migrations: [__dirname + "../database/migrations/*.ts"],
+      synchronize: false,
+     entities: ['dist/**/*.entity.js'],
+     migrations: ['dist/database/migrations/*.js'],
 };
 
 export const dataSourceOptions = rawDataSourceOptions as DataSourceOptions;
