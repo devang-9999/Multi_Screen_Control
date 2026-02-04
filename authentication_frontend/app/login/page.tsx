@@ -1,10 +1,10 @@
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
+import { any, z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import Snackbar from "@mui/material/Snackbar";
@@ -26,7 +26,7 @@ import {
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { loginUserThunk, fetchMeThunk, resetAuthState } from "../../redux/authSlice";
+import { loginUserThunk, resetAuthState } from "../../redux/authSlice";
 
 const LoginSchema = z.object({
   email: z.string().email("Email is invalid"),
@@ -39,15 +39,17 @@ export default function Login() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const { loading, success, error } = useAppSelector(
-    (state) => state.auth
-  );
-
+  const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] =
     useState<"success" | "error">("success");
+
+
+  const { loading, success, error, otpRequired, otpUserId } =
+    useAppSelector((state) => state.auth);
+
 
   const {
     register,
@@ -58,6 +60,36 @@ export default function Login() {
     resolver: zodResolver(LoginSchema),
     mode: "onChange",
   });
+
+ const verifyOtp = async () => {
+  try {
+    const res = await fetch("http://localhost:5000/auth/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: otpUserId,
+        otp,
+      }),
+    });
+
+    if (!res.ok) {
+      throw new Error("Invalid OTP");
+    }
+
+    const data = await res.json();
+
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("sessionId", data.sessionId);
+
+    router.push("/");
+  } catch (err ) {
+    setSnackbarMessage("Invalid OTP");
+    setSnackbarSeverity("error");
+    setSnackbarOpen(true);
+  }
+};
+
+
 
   const handleLogin = (data: LoginFormData) => {
     dispatch(loginUserThunk(data));
@@ -70,21 +102,20 @@ export default function Login() {
       setSnackbarOpen(true);
     }
 
-    if (success) {
+    if (success && !otpRequired) {
       setSnackbarMessage("Login successful");
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
 
-      dispatch(fetchMeThunk());
-
       reset();
-      router.push("/dashboard");
+      router.push("/");
     }
+
 
     return () => {
       dispatch(resetAuthState());
     };
-  }, [success, error, dispatch, reset, router]);
+  }, [success, error, dispatch, reset, router,otpRequired]);
 
   return (
     <>
@@ -130,6 +161,27 @@ export default function Login() {
             >
               {loading ? "Logging in..." : "Login"}
             </Button>
+
+            {otpRequired && (
+              <>
+                <TextField
+                  fullWidth
+                  label="Enter OTP"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  sx={{ mt: 2 }}
+                />
+                <Button
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 2 }}
+                  onClick={verifyOtp}
+                >
+                  Verify OTP
+                </Button>
+              </>
+            )}
+
 
             <Typography
               align="center"

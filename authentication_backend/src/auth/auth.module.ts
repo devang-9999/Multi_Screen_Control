@@ -6,10 +6,8 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { Auth } from './entities/auth.entity';
-import { LocalStrategy } from './local.strategy';
-import { JwtStrategy } from './jwt.strategy';
-import { AuthGateway } from './auth.gateway';
 import { UserSession } from 'src/session/entities/user-session.entity';
+import { SessionGateway } from 'src/session/session.gateway';
 
 @Module({
   imports: [
@@ -17,11 +15,11 @@ import { UserSession } from 'src/session/entities/user-session.entity';
     PassportModule,
     JwtModule.register({
       secret: 'SECRET_KEY_123',
-      signOptions: { expiresIn: '10m' },
+      signOptions: { expiresIn: '1d' },
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, LocalStrategy, JwtStrategy,AuthGateway],
+  providers: [AuthService, SessionGateway],
   exports: [JwtModule],
 })
 export class AuthModule {}

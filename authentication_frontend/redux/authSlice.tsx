@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import api from "@/app/lib/axios";
@@ -20,6 +19,9 @@ interface AuthState {
   success: boolean;
   error: string | null;
   user: User | null;
+  otpRequired?: boolean;
+  otpUserId?: number;
+
 }
 
 const initialState: AuthState = {
@@ -27,6 +29,8 @@ const initialState: AuthState = {
   success: false,
   error: null,
   user: null,
+  otpRequired: false,
+  otpUserId: undefined,
 };
 
 export const registerUserThunk = createAsyncThunk(
@@ -36,7 +40,7 @@ export const registerUserThunk = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const res = await api.post("/auth/register", data);
+      const res = await api.post("/auth/signup", data);
       return res.data;
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -59,21 +63,6 @@ export const loginUserThunk = createAsyncThunk(
         return rejectWithValue(error.response?.data?.message);
       }
       return rejectWithValue("Login failed");
-    }
-  }
-);
-
-export const fetchMeThunk = createAsyncThunk(
-  "auth/me",
-  async (_, { rejectWithValue }) => {
-    try {
-      const res = await api.get("/auth/me");
-      return res.data;
-    } catch(error:any) {
-      if( error.response.status === 401){
-        return rejectWithValue("Session is expired login in again");
-      }
-      return rejectWithValue("Not authenticated");
     }
   }
 );
@@ -112,22 +101,24 @@ const authSlice = createSlice({
       .addCase(loginUserThunk.pending, (state) => {
         state.loading = true;
       })
-      .addCase(loginUserThunk.fulfilled, (state) => {
+      .addCase(loginUserThunk.fulfilled, (state, action) => {
         state.loading = false;
-        state.success = true;
+        state.user=action.payload
+
+        if (action.payload?.otpRequired) {
+          state.otpRequired = true;
+          state.otpUserId = action.payload.userId;
+          state.success = false;
+        } else {
+          localStorage.setItem("token", action.payload.token);
+          localStorage.setItem("sessionId", action.payload.sessionId);
+          state.success = true;
+          state.otpRequired = false;
+        }
       })
       .addCase(loginUserThunk.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      })
-      .addCase(fetchMeThunk.fulfilled, (state, action) => {
-        state.user = action.payload;
-      })
-      .addCase(fetchMeThunk.rejected, (state,action) => {
-        if(action.payload === "Session is expired login in again")
-     {
-         state.user = null;
-     }
       })
       .addCase(logoutThunk.fulfilled, (state) => {
         state.user = null;

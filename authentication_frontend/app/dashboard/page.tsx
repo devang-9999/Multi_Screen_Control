@@ -1,65 +1,67 @@
 "use client";
-import {io} from "socket.io-client";
-const socket = io("http://localhost:5000");
+
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Typography, Box } from "@mui/material";
-import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { fetchMeThunk, logoutThunk } from "../../redux/authSlice";
+import { useAppDispatch } from "../../redux/hooks";
+import { logoutThunk } from "../../redux/authSlice";
+import { connectSocket, disconnectSocket } from "@/app/lib/socket";
 
 export default function Dashboard() {
   const dispatch = useAppDispatch();
   const router = useRouter();
 
-  const { user, loading } = useAppSelector((state) => state.auth);
-
   useEffect(() => {
-    dispatch(fetchMeThunk());
-  }, [dispatch]);
+    const token = localStorage.getItem("token");
+    const sessionId = localStorage.getItem("sessionId");
 
-  useEffect(() => { 
-    if (!loading && !user) {
+    if (!token || !sessionId) {
       router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [router]);
 
-  const handleLogout = async () => {
-    socket.on('force_logout', () => {
+  useEffect(() => {
+    const sessionId = localStorage.getItem("sessionId");
+    if (!sessionId) return;
+
+    const socket = connectSocket();
+
+    socket.on("OTP_ALERT", (data) => {
+      alert(` New login detected!\nOTP: ${data.otp}`);
+    });
+
+    socket.on("FORCE_LOGOUT", () => {
+      alert("You have been logged out");
       dispatch(logoutThunk());
+      localStorage.clear();
       router.push("/login");
     });
-  };
 
-  if (loading) {
-    return <Typography>Loading...</Typography>;
-  }
+    return () => {
+      disconnectSocket();
+    };
+  }, [dispatch, router]);
 
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
+      <Typography variant="h4">Dashboard</Typography>
 
       <Typography variant="body1" sx={{ mb: 2 }}>
-        Welcome to me
+        You are logged in on this screen.
       </Typography>
-
-      {user && (
-        <>
-          <Typography>User ID: {user.userid}</Typography>
-          <Typography>Email: {user.email}</Typography>
-        </>
-      )}
 
       <Button
         variant="contained"
         color="error"
         sx={{ mt: 3 }}
-        onClick={handleLogout}
+        onClick={() => {
+          dispatch(logoutThunk());
+          localStorage.clear();
+          router.push("/login");
+        }}
       >
         Logout
       </Button>
-
     </Box>
   );
 }

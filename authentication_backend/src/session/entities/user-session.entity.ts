@@ -4,16 +4,21 @@ import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 @Entity("users_session")
 export class UserSession {
 
-    @PrimaryGeneratedColumn()
-    id: number;
+  @PrimaryGeneratedColumn()
+  id: number;
 
-    @Column()
-    userId: number;
+  @Column()
+  userId: number;
 
-    @Column()
-    sessionId : string;
+  @Column()
+  sessionId: string;
 
-    @Column({default: true})
-    isActive: boolean;
+  @Column({ default: true })
+  isActive: boolean;
 
+  @Column({
+    type: 'varchar',
+    nullable: true,
+  })
+  otp: string|null;
 }

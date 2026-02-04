@@ -1,106 +1,144 @@
 /* eslint-disable prettier/prettier */
-import { HttpException,  } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { Auth } from './entities/auth.entity';
-import { Injectable } from '@nestjs/common';
+
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Auth } from './entities/auth.entity';
 import { JwtService } from '@nestjs/jwt';
 import { v4 as uuid } from 'uuid';
 import { UserSession } from 'src/session/entities/user-session.entity';
-
+import { SessionGateway } from 'src/session/session.gateway';
+import { CreateAuthDto } from './dto/create-auth.dto';
+import { LoginAuthDto } from './dto/login-auth.dto';
 
 @Injectable()
 export class AuthService {
-  verifyToken: any;
 
   constructor(
     @InjectRepository(Auth)
-    readonly userRepository: Repository<Auth>,
+    private authRepo: Repository<Auth>,
+
     @InjectRepository(UserSession)
-    readonly sessionRepo: Repository<UserSession>,
+    private sessionRepo: Repository<UserSession>,
 
-    readonly jwtService: JwtService,
-
+    private jwtService: JwtService,
+    private sessionGateway: SessionGateway,
   ) { }
 
-  async createUser(createAuthDto: CreateAuthDto) {
-    const { username, useremail, userPassword } = createAuthDto;
-    const existingUser = await this.userRepository.findOne({
-      where: [{ useremail }],
+  async signup(data: CreateAuthDto) {
+
+    const user = this.authRepo.create({
+      username: data.username,
+      useremail: data.useremail,
+      userPassword: data.userPassword,
     });
-    if (existingUser) {
-      throw new HttpException({ message: 'User already exists' }, 400);
-    }
-    const newUser = this.userRepository.create({
-      username,
-      useremail,
-      userPassword,
-    });
-    return this.userRepository.save(newUser);
+
+    return this.authRepo.save(user);
   }
 
-  async validateUser(email: string, password: string) {
-    const currentUser = await this.userRepository.findOne({
-      where: { useremail: email, userPassword: password },
+  async login(data: LoginAuthDto) {
+
+    const user = await this.authRepo.findOne({
+      where: {
+        useremail: data.email,
+        userPassword: data.password
+      },
     });
-    if (currentUser?.noOfLogin === 2) {
-      throw new HttpException({ message: 'User is blocked due to multiple invalid login attempts' }, 403);
+
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const activeSessions = await this.sessionRepo.find({
+      where: {
+        userId: user.userid,
+        isActive: true,
+      },
+    });
+
+    if (activeSessions.length < 2) {
+      return this.createSession(user);
     }
 
-    else if (currentUser?.noOfLogin === 1) {
-      currentUser.noOfLogin = 2;
-      await this.userRepository.save(currentUser);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    await Promise.all(
+      activeSessions.map(session => {
+        session.otp = otp;
+        return this.sessionRepo.save(session);
+      }),
+    );
+
+    this.sessionGateway.sendOtpToOldSessions(
+      activeSessions.map(s => s.sessionId),
+      otp,
+    );
+
+    return {
+      message: 'Maximum sessions reached. OTP required.',
+      otpRequired: true,
+      userId: user.userid,
+    };
+  }
+
+  async verifyOtp(userId: number, otp: string) {
+
+    const sessions = await this.sessionRepo.find({
+      where: {
+        userId,
+        isActive: true,
+      },
+    });
+
+    if (sessions.length === 0)
+      throw new UnauthorizedException('No active sessions');
+
+    if (sessions[0].otp !== otp)
+      throw new UnauthorizedException('Invalid OTP');
+
+    await Promise.all(
+      sessions.map(s => {
+        s.isActive = false;
+        s.otp = null;
+        return this.sessionRepo.save(s);
+      }),
+    );
+
+    this.sessionGateway.forceLogout(
+      sessions.map(s => s.sessionId),
+    );
+
+    const user = await this.authRepo.findOne({
+      where: { userid: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    else if (currentUser?.noOfLogin === 0) {
-      currentUser.noOfLogin = 1;
-      await this.userRepository.save(currentUser);
-    }
-
-    else {
-      return "User not found";
-    }
-
-    return currentUser;
+    return this.createSession(user);
 
   }
 
-  generateToken(user: Auth) {
-    return this.jwtService.sign({
-      userid: user.userid,
-      email: user.useremail,
-    });
-  }
+  async createSession(user: Auth) {
 
-  async activeSessions(userId: number) {
-    return await this.sessionRepo.count({
-      where: { userId, isActive: true },
-    });
-  }
-
-  async createSession(userId: number) {
     const sessionId = uuid();
 
-    await this.sessionRepo.save({
-      userId,
+    const payload = {
+      userId: user.userid,
       sessionId,
-      isActive: true,
+    };
+
+    const token = this.jwtService.sign(payload);
+
+    const session = this.sessionRepo.create({
+      userId: user.userid,
+      sessionId,
     });
 
-    return this.jwtService.sign({ userId, sessionId });
-  }
+    await this.sessionRepo.save(session);
 
-  async invalidateAllSessions(userId: number) {
-    await this.sessionRepo.update(
-      { userId },
-      { isActive: false },
-    );
-  }
-
-  async isSessionValid(userId: number, sessionId: string) {
-    return this.sessionRepo.findOne({
-      where: { userId, sessionId, isActive: true },
-    });
+    return {
+      token,
+      sessionId,
+    };
   }
 }

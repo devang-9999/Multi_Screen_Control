@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import Dashboard from "./dashboard/page";
 export default function Home() {
 
   return (
     <div>
-      Hello User
+     <Dashboard/>
     </div>
   );
 }
