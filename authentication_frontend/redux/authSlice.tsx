@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import api from "@/app/lib/axios";
@@ -68,7 +69,10 @@ export const fetchMeThunk = createAsyncThunk(
     try {
       const res = await api.get("/auth/me");
       return res.data;
-    } catch {
+    } catch(error:any) {
+      if( error.response.status === 401){
+        return rejectWithValue("Session is expired login in again");
+      }
       return rejectWithValue("Not authenticated");
     }
   }
@@ -119,8 +123,11 @@ const authSlice = createSlice({
       .addCase(fetchMeThunk.fulfilled, (state, action) => {
         state.user = action.payload;
       })
-      .addCase(fetchMeThunk.rejected, (state) => {
-        state.user = null;
+      .addCase(fetchMeThunk.rejected, (state,action) => {
+        if(action.payload === "Session is expired login in again")
+     {
+         state.user = null;
+     }
       })
       .addCase(logoutThunk.fulfilled, (state) => {
         state.user = null;

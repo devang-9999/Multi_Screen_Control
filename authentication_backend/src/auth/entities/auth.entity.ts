@@ -15,4 +15,7 @@ export class Auth {
   @Column()
   userPassword: string;
 
+  @Column({ default: 0 })
+  noOfLogin:number
+
 }

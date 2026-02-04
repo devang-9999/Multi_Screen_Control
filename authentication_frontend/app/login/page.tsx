@@ -78,7 +78,7 @@ export default function Login() {
       dispatch(fetchMeThunk());
 
       reset();
-      router.push("/");
+      router.push("/dashboard");
     }
 
     return () => {

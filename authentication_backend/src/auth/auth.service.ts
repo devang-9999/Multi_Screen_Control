@@ -1,12 +1,10 @@
 /* eslint-disable prettier/prettier */
-import { HttpException, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { Auth } from './entities/auth.entity';
-// import { LoginAuthDto } from './dto/login-auth.dto';
-
 
 @Injectable()
 export class AuthService {
@@ -15,24 +13,6 @@ export class AuthService {
     private userRepository: Repository<Auth>,
     private jwtService: JwtService,
   ) { }
-
-  async toggleBlockUser(userId: number) {
-    const user = await this.userRepository.findOne({
-      where: { userid: userId },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-    return this.userRepository.save(user);
-  }
-
-  async getAllUsers() {
-    return this.userRepository.find({
-      select: ['userid', 'username', 'useremail'],
-    });
-  }
-
 
   async createUser(createAuthDto: CreateAuthDto) {
     const { username, useremail, userPassword } = createAuthDto;
@@ -54,46 +34,31 @@ export class AuthService {
     return this.userRepository.save(newUser);
   }
 
-   async validateUser(email: string, password: string) {
-    return this.userRepository.findOne({
+  async validateUser(email: string, password: string) {
+
+    const currentUser= await this.userRepository.findOne({
       where: { useremail: email, userPassword: password },
     });
+
+    if(currentUser?.noOfLogin===2){
+      throw new HttpException({ message: 'User is blocked due to multiple invalid login attempts' }, 403);
+  }else if(currentUser?.noOfLogin===1){
+      currentUser.noOfLogin+=1;
+      await this.userRepository.save(currentUser);
+  }else if(currentUser?.noOfLogin===0){
+    currentUser.noOfLogin+=1;
+    await this.userRepository.save(currentUser);
+  }else{
+    return "User not found";
   }
+}
 
   generateToken(user: Auth) {
     return this.jwtService.sign({
       userid: user.userid,
       email: user.useremail,
     });
+
+    
   }
-
-  // async login(loginAuthDto: LoginAuthDto) {
-  //   const { email, password } = loginAuthDto;
-
-
-  //   const user = await this.userRepository.findOne({
-  //     where: {
-  //       useremail: email,
-  //       userPassword: password,
-  //     },
-  //   });
-
-  //   if (!user) {
-  //     throw new HttpException({ message: 'Invalid credentials' }, 401);
-  //   }
-
-  //   const payload = {
-  //     userid: user.userid,
-  //     useremail: user.useremail,
-  //   };
-
-  //   return {
-  //     access_token: this.jwtService.sign(payload),
-  //     user: {
-  //       userid: user.userid,
-  //       email: user.useremail,
-  //     },
-  //   };
-  // }
 }
-

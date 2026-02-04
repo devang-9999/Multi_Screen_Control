@@ -30,7 +30,7 @@ export class AuthController {
       httpOnly: true,
       sameSite: 'lax',
       secure: false, 
-      maxAge: 5 * 60 * 1000,
+      maxAge: 1 * 60 * 1000,
     });
 
     return { message: 'Login successful' };
